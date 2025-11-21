@@ -2,3 +2,4 @@
 node_modules/
 dist/
 build/
+server/src/configs/firebase-admin.json
