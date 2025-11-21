@@ -1,0 +1,13 @@
+# Use Debian-based Node (supports glibc for wrtc)
+FROM node:20-bullseye
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+
+EXPOSE 5000
+
+CMD ["npm", "run", "dev"]

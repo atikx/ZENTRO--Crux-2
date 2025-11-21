@@ -1,0 +1,34 @@
+               ┌───────────────────┐
+               │     Database       │
+               │ Stores metadata:   │
+               │  - streamId        │
+               │  - title           │
+               │  - live/offline    │
+               └─────────┬─────────┘
+                         │
+                         │
+               ┌─────────▼─────────┐
+               │   SFU + Signalling │
+               │    Node.js Server │
+               │  · Manages rooms   │
+               │  · Forwards tracks │
+               └───────┬─┬─────────┘
+                       │ │
+     Broadcaster       │ │             Viewer
+  (WebRTC Peer A)      │ │       (WebRTC Peer V1, V2, V3...)
+      │                │ │            │      │      │
+      │  send tracks   │ │            │      │      │
+      └──────────────> │ │ <──────────┘      │      │
+                       │ │                   │      │
+                       │ │                   │ WebRTC video
+                       │ │                   │
+  Create room(streamId)│ │         Viewer requests streamId
+                       │ │
+               ┌───────▼─▼─────────┐
+               │    rooms{}         │
+               │  streamId → {      │
+               │   broadcaster,     │
+               │   tracks,          │
+               │   viewers[]        │
+               │  }                 │
+               └────────────────────┘
