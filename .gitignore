@@ -1,5 +1,15 @@
+# Environment files
 .env
+
+# Node modules
 node_modules/
+
+# Build outputs
 dist/
 build/
-server/src/configs/firebase-admin.jsonserver/src/configs/firebase-admin.json
+
+# Firebase admin credentials
+server/src/configs/firebase-admin.json
+
+# Uploaded files
+public/uploads/
