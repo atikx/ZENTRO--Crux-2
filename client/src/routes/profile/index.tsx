@@ -12,23 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuPortal,
-} from '@/components/ui/dropdown-menu'
 import { Slider } from '@/components/ui/slider'
 import {
-  Eye,
-  Settings,
-  Calendar,
-  Clock,
-  MoreVertical,
-  Edit,
-  Trash2,
-  Share2,
   Mail,
   User,
   Video,
@@ -248,17 +233,6 @@ function ProfilePage() {
     setCroppedAreaPixels(null)
   }
 
-  const handleDeleteStream = async (streamId: string) => {
-    try {
-      await api.delete(`/stream/${streamId}`)
-      toast.success('Stream deleted successfully!')
-      getUsersStreams()
-    } catch (error) {
-      console.error('Error deleting stream:', error)
-      toast.error('Failed to delete stream')
-    }
-  }
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'live':
@@ -369,12 +343,6 @@ function ProfilePage() {
                   </div>
                 </div>
               </div>
-
-              {/* Settings Button */}
-              <Button className="shadow-lg hover:shadow-xl transition-all group">
-                <Settings className="h-4 w-4 mr-2 group-hover:rotate-90 transition-transform duration-300" />
-                Settings
-              </Button>
             </div>
           </CardContent>
         </Card>
@@ -623,18 +591,15 @@ function ProfilePage() {
                             {stream.description}
                           </p>
 
-                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                            <div className="flex items-center gap-1.5">
-                              <Calendar className="h-4 w-4" />
-                              <span className="font-mono text-xs">
-                                ID: {stream.id.slice(0, 8)}...
-                              </span>
-                            </div>
+                          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+                            <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                              {stream.id.slice(0, 8)}...
+                            </span>
                           </div>
                         </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-2 mt-4 sm:mt-0">
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 mt-4">
                           {stream.status === 'live' && (
                             <Link to="/stream/view/$id" params={{ id: stream.id }}>
                               <Button
@@ -657,39 +622,6 @@ function ProfilePage() {
                               </Button>
                             </Link>
                           )}
-                          <Link to="/stream/edit/$id" params={{ id: stream.id }}>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="hover:bg-primary hover:text-white transition-colors"
-                            >
-                              <Edit className="h-3.5 w-3.5 mr-1.5" />
-                              Edit
-                            </Button>
-                          </Link>
-
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button size="sm" variant="outline">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuPortal>
-                              <DropdownMenuContent align="end" className="z-50">
-                                <DropdownMenuItem>
-                                  <Share2 className="h-4 w-4 mr-2" />
-                                  Share Stream
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  className="text-red-600"
-                                  onClick={() => handleDeleteStream(stream.id)}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete Stream
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenuPortal>
-                          </DropdownMenu>
                         </div>
                       </div>
                     </div>
