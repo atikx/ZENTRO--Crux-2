@@ -1,5 +1,5 @@
 // routes/profile/$username.tsx
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -37,8 +37,10 @@ import {
   Camera,
   ZoomIn,
   RotateCw,
+  Play,
+  Radio,
 } from 'lucide-react'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
 import Cropper from 'react-easy-crop'
 import type { Area, Point } from 'react-easy-crop'
@@ -50,62 +52,23 @@ export const Route = createFileRoute('/profile/')({
   component: ProfilePage,
 })
 
-// Current logged-in user data
-const initialUser = useAuthStore.getState().user
+interface Host {
+  id: string
+  name: string
+  email: string
+  username: string
+  avatar: string | null
+}
 
-// User's streaming history
-const streamHistory = [
-  {
-    id: 1,
-    title: 'Building a Next.js 15 App - Live Coding Session',
-    thumbnail:
-      'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=225&fit=crop',
-    views: 1240,
-    duration: '2:34:15',
-    date: '2024-11-18',
-    streamedAt: 'Nov 18, 2024',
-  },
-  {
-    id: 2,
-    title: 'React Server Components Deep Dive',
-    thumbnail:
-      'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=225&fit=crop',
-    views: 892,
-    duration: '1:45:30',
-    date: '2024-11-15',
-    streamedAt: 'Nov 15, 2024',
-  },
-  {
-    id: 3,
-    title: 'Database Design Best Practices Tutorial',
-    thumbnail:
-      'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=400&h=225&fit=crop',
-    views: 2156,
-    duration: '3:12:45',
-    date: '2024-11-10',
-    streamedAt: 'Nov 10, 2024',
-  },
-  {
-    id: 4,
-    title: 'TypeScript Tips & Tricks for Beginners',
-    thumbnail:
-      'https://images.unsplash.com/photo-1516116216624-53e697fedbea?w=400&h=225&fit=crop',
-    views: 1567,
-    duration: '2:15:20',
-    date: '2024-11-05',
-    streamedAt: 'Nov 5, 2024',
-  },
-  {
-    id: 5,
-    title: 'Building REST APIs with Node.js',
-    thumbnail:
-      'https://images.unsplash.com/photo-1614680376408-81e91ffe3db7?w=400&h=225&fit=crop',
-    views: 743,
-    duration: '1:58:10',
-    date: '2024-11-01',
-    streamedAt: 'Nov 1, 2024',
-  },
-]
+interface Stream {
+  id: string
+  title: string
+  description: string
+  hostId: string
+  status: string
+  thumbnail?: string
+  host: Host
+}
 
 // Helper function to create cropped image
 const createImage = (url: string): Promise<HTMLImageElement> =>
@@ -165,6 +128,7 @@ async function getCroppedImg(
 }
 
 function ProfilePage() {
+  const initialUser = useAuthStore.getState().user
   const [currentUser, setCurrentUser] = useState(initialUser)
   const [isAvatarDialogOpen, setIsAvatarDialogOpen] = useState(false)
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
@@ -172,12 +136,29 @@ function ProfilePage() {
   const [zoom, setZoom] = useState(1)
   const [rotation, setRotation] = useState(0)
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
+  const [streams, setStreams] = useState<Stream[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const totalViews = streamHistory.reduce(
-    (sum, stream) => sum + stream.views,
-    0,
-  )
-  const totalStreams = streamHistory.length
+  const getUsersStreams = async () => {
+    try {
+      setLoading(true)
+      const res = await api.get('/stream/userStreams')
+      console.log('Fetched user streams:', res.data)
+      setStreams(res.data.streams || [])
+    } catch (error) {
+      console.error('Error fetching user streams:', error)
+      setStreams([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    getUsersStreams()
+  }, [])
+
+  const totalStreams = streams.length
+  const liveStreams = streams.filter((stream) => stream.status === 'live').length
 
   // Handle image drop
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -217,10 +198,6 @@ function ProfilePage() {
         rotation,
       )
 
-      console.log('Avatar blob ready for upload:', croppedBlob)
-      console.log('Blob size:', croppedBlob.size, 'bytes')
-      console.log('Blob type:', croppedBlob.type)
-
       // Create FormData for upload
       const formData = new FormData()
       formData.append('image', croppedBlob, 'avatar.png')
@@ -237,34 +214,27 @@ function ProfilePage() {
       setRotation(0)
       setCroppedAreaPixels(null)
 
-      // Proper API call
+      // API call
       const res = await api.post('/avatar', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       })
 
-      // Handle response
       toast.success('Avatar updated successfully!')
       setCurrentUser({ ...currentUser, avatar: res.data.avatarUrl })
 
-      // Cleanup preview URL
       URL.revokeObjectURL(previewUrl)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading avatar:', error)
 
-      // Rollback UI changes on error
       setCurrentUser((prev) => ({ ...prev }))
 
-      // Provide user feedback
       if (error.response) {
-        // Server responded with error
         toast.error(error.response.data.message || 'Failed to upload avatar')
       } else if (error.request) {
-        // Request made but no response
         toast.error('Network error. Please check your connection.')
       } else {
-        // Error during setup or image cropping
         toast.error('Failed to process image. Please try again.')
       }
     }
@@ -276,6 +246,43 @@ function ProfilePage() {
     setZoom(1)
     setRotation(0)
     setCroppedAreaPixels(null)
+  }
+
+  const handleDeleteStream = async (streamId: string) => {
+    try {
+      await api.delete(`/stream/${streamId}`)
+      toast.success('Stream deleted successfully!')
+      getUsersStreams()
+    } catch (error) {
+      console.error('Error deleting stream:', error)
+      toast.error('Failed to delete stream')
+    }
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'live':
+        return (
+          <Badge className="bg-red-500 text-white border-0 animate-pulse">
+            <span className="inline-block w-2 h-2 bg-white rounded-full mr-1.5" />
+            LIVE
+          </Badge>
+        )
+      case 'ended':
+        return (
+          <Badge variant="outline" className="bg-gray-100 text-gray-700">
+            Ended
+          </Badge>
+        )
+      case 'justCreated':
+        return (
+          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">
+            Created
+          </Badge>
+        )
+      default:
+        return <Badge variant="outline">{status}</Badge>
+    }
   }
 
   return (
@@ -350,13 +357,13 @@ function ProfilePage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="p-2 rounded-lg bg-purple-50">
-                      <Eye className="h-5 w-5 text-purple-600" />
+                    <div className="p-2 rounded-lg bg-red-50">
+                      <Radio className="h-5 w-5 text-red-600" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Total Views</p>
+                      <p className="text-sm text-gray-600">Live Now</p>
                       <p className="text-xl font-bold text-gray-900">
-                        {totalViews.toLocaleString()}
+                        {liveStreams}
                       </p>
                     </div>
                   </div>
@@ -531,14 +538,19 @@ function ProfilePage() {
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <Video className="h-6 w-6 text-primary" />
-              Streaming History
+              My Streams
             </h2>
             <Badge variant="outline" className="text-gray-600">
               {totalStreams} {totalStreams === 1 ? 'stream' : 'streams'}
             </Badge>
           </div>
 
-          {streamHistory.length === 0 ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+              <p className="mt-6 text-gray-600 font-medium">Loading streams...</p>
+            </div>
+          ) : streams.length === 0 ? (
             <Card className="border-0 backdrop-blur-xl bg-white/70 shadow-lg">
               <CardContent className="py-16 text-center">
                 <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -547,14 +559,20 @@ function ProfilePage() {
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
                   No streams yet
                 </h3>
-                <p className="text-gray-600">
-                  Your streaming history will appear here
+                <p className="text-gray-600 mb-6">
+                  Start your first stream to see it here
                 </p>
+                <Link to="/stream/create">
+                  <Button className="shadow-lg">
+                    <Radio className="h-4 w-4 mr-2" />
+                    Create Stream
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           ) : (
             <div className="grid grid-cols-1 gap-4">
-              {streamHistory.map((stream) => (
+              {streams.map((stream) => (
                 <Card
                   key={stream.id}
                   className="group cursor-pointer overflow-hidden border-0 backdrop-blur-xl bg-white/70 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-1"
@@ -562,20 +580,36 @@ function ProfilePage() {
                   <CardContent className="p-0">
                     <div className="flex flex-col sm:flex-row gap-0">
                       {/* Thumbnail */}
-                      <div className="relative sm:w-80 aspect-video sm:aspect-auto overflow-hidden bg-gray-100">
-                        <img
-                          src={stream.thumbnail}
-                          alt={stream.title}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                        />
+                      <div className="relative sm:w-80 aspect-video sm:aspect-auto overflow-hidden bg-gradient-to-br from-primary/10 to-purple-500/10">
+                        {stream.thumbnail ? (
+                          <img
+                            src={stream.thumbnail.replace(/"/g, '')}
+                            alt={stream.title}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Radio className="h-16 w-16 text-gray-300" />
+                          </div>
+                        )}
 
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
 
-                        {/* Duration Badge */}
-                        <div className="absolute bottom-3 right-3 backdrop-blur-xl bg-black/70 text-white text-sm px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5">
-                          <Clock className="h-3.5 w-3.5" />
-                          {stream.duration}
+                        {/* Status Badge */}
+                        <div className="absolute top-3 left-3">
+                          {getStatusBadge(stream.status)}
                         </div>
+
+                        {/* Play overlay on hover */}
+                        {stream.status === 'live' && (
+                          <Link to="/stream/view/$id" params={{ id: stream.id }}>
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                              <div className="bg-white rounded-full p-4 transform scale-100 group-hover:scale-110 transition-transform duration-300">
+                                <Play className="h-8 w-8 text-primary fill-primary" />
+                              </div>
+                            </div>
+                          </Link>
+                        )}
                       </div>
 
                       {/* Stream Info */}
@@ -585,30 +619,54 @@ function ProfilePage() {
                             {stream.title}
                           </h3>
 
+                          <p className="text-sm text-gray-600 line-clamp-2">
+                            {stream.description}
+                          </p>
+
                           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
                             <div className="flex items-center gap-1.5">
-                              <Eye className="h-4 w-4" />
-                              <span className="font-medium">
-                                {stream.views.toLocaleString()} views
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
                               <Calendar className="h-4 w-4" />
-                              <span>{stream.streamedAt}</span>
+                              <span className="font-mono text-xs">
+                                ID: {stream.id.slice(0, 8)}...
+                              </span>
                             </div>
                           </div>
                         </div>
 
                         {/* Actions */}
                         <div className="flex items-center gap-2 mt-4 sm:mt-0">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="hover:bg-primary hover:text-white transition-colors"
-                          >
-                            <Edit className="h-3.5 w-3.5 mr-1.5" />
-                            Edit
-                          </Button>
+                          {stream.status === 'live' && (
+                            <Link to="/stream/view/$id" params={{ id: stream.id }}>
+                              <Button
+                                size="sm"
+                                className="bg-primary hover:bg-primary/90"
+                              >
+                                <Play className="h-3.5 w-3.5 mr-1.5" />
+                                Watch
+                              </Button>
+                            </Link>
+                          )}
+                          {stream.status === 'justCreated' && (
+                            <Link to="/stream/broadcast/$id" params={{ id: stream.id }}>
+                              <Button
+                                size="sm"
+                                className="bg-primary hover:bg-primary/90"
+                              >
+                                <Radio className="h-3.5 w-3.5 mr-1.5" />
+                                Start
+                              </Button>
+                            </Link>
+                          )}
+                          <Link to="/stream/edit/$id" params={{ id: stream.id }}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="hover:bg-primary hover:text-white transition-colors"
+                            >
+                              <Edit className="h-3.5 w-3.5 mr-1.5" />
+                              Edit
+                            </Button>
+                          </Link>
 
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -622,7 +680,10 @@ function ProfilePage() {
                                   <Share2 className="h-4 w-4 mr-2" />
                                   Share Stream
                                 </DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-600">
+                                <DropdownMenuItem
+                                  className="text-red-600"
+                                  onClick={() => handleDeleteStream(stream.id)}
+                                >
                                   <Trash2 className="h-4 w-4 mr-2" />
                                   Delete Stream
                                 </DropdownMenuItem>

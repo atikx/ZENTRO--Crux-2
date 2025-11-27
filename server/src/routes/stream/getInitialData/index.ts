@@ -6,6 +6,7 @@ import { and, eq } from "drizzle-orm";
 const router = Router();
 
 router.get("/:streamId", async (req: any, res) => {
+  console.log("Fetching initial data for stream ID:", req.params.streamId);
   try {
     const { streamId } = req.params;
 
@@ -16,23 +17,22 @@ router.get("/:streamId", async (req: any, res) => {
       .where(and(eq(streams.id, streamId), eq(streams.hostId, req.user.dbId)));
 
     if (!streamData) {
+      console.log("Stream not found for ID:", streamId);
       return res
         .status(404)
         .json({ message: "Stream not found, Please create stream first" });
     }
 
-    if (streamData.status !== "justCreated") {
+    if (streamData.status != "justCreated") {
       return res
         .status(400)
         .json({ message: "Stream already started or ended" });
     }
 
-    res
-      .status(200)
-      .json({
-        stream: streamData,
-        message: "Initial stream data fetched successfully",
-      });
+    res.status(200).json({
+      stream: streamData,
+      message: "Initial stream data fetched successfully",
+    });
   } catch (error) {
     console.error("Error in /stream/getInitialData route:", error);
     res.status(500).json({ message: "Internal server error" });
